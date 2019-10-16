@@ -17,9 +17,7 @@ public class UserDTO {
 	private String title;
 	private String firstName;
 	private String lastName;
-	private String email;	
-	private String password;
-	private String newPassword;
+	private String email;
 	private String token;
 	private String tokenType;
 	private Date tokenLastUpdate;	
@@ -53,18 +51,6 @@ public class UserDTO {
 	}
 	public void setEmail(String email) {
 		this.email = email;
-	}
-	public String getPassword() {
-		return password;
-	}
-	public void setPassword(String password) {
-		this.password = password;
-	}
-	public String getNewPassword() {
-		return newPassword;
-	}
-	public void setNewPassword(String newPassword) {
-		this.newPassword = newPassword;
 	}
 	public String getToken() {
 		return token;

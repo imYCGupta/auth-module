@@ -10,34 +10,26 @@ package com.geekwise.auth.module.dto;
  */
 public class SignupRequestDTO {
 
-	private String title;
-	private String firstName;
-	private String lastName;
+	private String email;
 	private String username;
 	private String password;
-
-	public String getTitle() {
-		return title;
+	private boolean verifyEmailAutomatically;
+	
+	
+	public boolean isVerifyEmailAutomatically() {
+		return verifyEmailAutomatically;
 	}
 
-	public void setTitle(String title) {
-		this.title = title;
+	public void setVerifyEmailAutomatically(boolean verifyEmailAutomatically) {
+		this.verifyEmailAutomatically = verifyEmailAutomatically;
 	}
 
-	public String getFirstName() {
-		return firstName;
+	public String getEmail() {
+		return email;
 	}
 
-	public void setFirstName(String firstName) {
-		this.firstName = firstName;
-	}
-
-	public String getLastName() {
-		return lastName;
-	}
-
-	public void setLastName(String lastName) {
-		this.lastName = lastName;
+	public void setEmail(String email) {
+		this.email = email;
 	}
 
 	public String getUsername() {

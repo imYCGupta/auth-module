@@ -1,7 +1,6 @@
 package com.geekwise.auth.module.service;
 
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONObject;
 
@@ -14,11 +13,11 @@ import com.geekwise.auth.module.enums.ExceptionsEnum;
 
 public interface AuthService {
 
-	public UserDTO signin(UserDTO userDTO);
+	public UserDTO signin(String username, String password);
+	
+	public boolean isValidToken(String accessToken);
 
-	public Map<String, Object> validateToken(String authToken);
-
-	public Map<String, Object> getUserDetailByToken(String authToken);
+	public String getUserNameByToken(String accessToken);
 
 	public UserType signup(SignupRequestDTO signupRequestDTO);
 
@@ -39,5 +38,7 @@ public interface AuthService {
 	public JSONObject decodeToken(String authToken);
 
 	public UserDTO refreshAccessToken(String refreshToken);
+
+	public boolean verifyEmail(String username);
 
 }
