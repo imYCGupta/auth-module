@@ -5,33 +5,46 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 import com.amazonaws.auth.ClasspathPropertiesFileCredentialsProvider;
 import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProvider;
 import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClientBuilder;
+import com.amazonaws.services.cognitoidp.model.AdminAddUserToGroupRequest;
 import com.amazonaws.services.cognitoidp.model.AdminCreateUserRequest;
 import com.amazonaws.services.cognitoidp.model.AdminCreateUserResult;
 import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthRequest;
 import com.amazonaws.services.cognitoidp.model.AdminInitiateAuthResult;
+import com.amazonaws.services.cognitoidp.model.AdminListGroupsForUserRequest;
+import com.amazonaws.services.cognitoidp.model.AdminListGroupsForUserResult;
+import com.amazonaws.services.cognitoidp.model.AdminRemoveUserFromGroupRequest;
+import com.amazonaws.services.cognitoidp.model.AdminRespondToAuthChallengeRequest;
+import com.amazonaws.services.cognitoidp.model.AdminRespondToAuthChallengeResult;
 import com.amazonaws.services.cognitoidp.model.AdminUpdateUserAttributesRequest;
 import com.amazonaws.services.cognitoidp.model.AttributeType;
 import com.amazonaws.services.cognitoidp.model.AuthFlowType;
 import com.amazonaws.services.cognitoidp.model.ChallengeNameType;
+import com.amazonaws.services.cognitoidp.model.ChangePasswordRequest;
+import com.amazonaws.services.cognitoidp.model.ConfirmForgotPasswordRequest;
+import com.amazonaws.services.cognitoidp.model.CreateGroupRequest;
+import com.amazonaws.services.cognitoidp.model.CreateGroupResult;
+import com.amazonaws.services.cognitoidp.model.ForgotPasswordRequest;
+import com.amazonaws.services.cognitoidp.model.ForgotPasswordResult;
 import com.amazonaws.services.cognitoidp.model.GetUserRequest;
 import com.amazonaws.services.cognitoidp.model.GetUserResult;
-import com.amazonaws.services.cognitoidp.model.NotAuthorizedException;
-import com.amazonaws.services.cognitoidp.model.TooManyRequestsException;
-import com.amazonaws.services.cognitoidp.model.UserNotFoundException;
+import com.amazonaws.services.cognitoidp.model.GroupType;
+import com.amazonaws.services.cognitoidp.model.ListGroupsRequest;
+import com.amazonaws.services.cognitoidp.model.ListGroupsResult;
 import com.amazonaws.services.cognitoidp.model.UserType;
 import com.geekwise.auth.module.dto.NewPasswordDTO;
-import com.geekwise.auth.module.dto.RoleDTO;
 import com.geekwise.auth.module.dto.SignupRequestDTO;
 import com.geekwise.auth.module.dto.UserDTO;
-import com.geekwise.auth.module.enums.ExceptionsEnum;
 import com.geekwise.auth.module.service.AuthService;
 
 /**
@@ -44,6 +57,10 @@ import com.geekwise.auth.module.service.AuthService;
  * 
  */
 public class AmazonCognitoAuthServiceImpl implements AuthService {
+
+	private static final String ROLES = "ROLES";
+
+	private static final String USERNAME = "USERNAME";
 
 	private static final Logger logger = LoggerFactory.getLogger(AmazonCognitoAuthServiceImpl.class);
 
@@ -86,47 +103,40 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	 * This function is used to signin a user on Cognito. It takes username and
 	 * password in input and return {@link UserDTO} in return. <br/>
 	 * If signin is success then it return {@link UserDTO} with JWT Access Token,
-	 * Token Expiry time, JWT Refresh Token, Token Type with it.
+	 * Token Expiry time, JWT Refresh Token, Token Type with it. This function is
+	 * used even when a NewPasswordRequiredChallenge is raised. In this case,
+	 * newPassword is also set in the userDTO and the function is invoked
 	 * 
-	 * @param username - Username to login
-	 * @param password - password to login
+	 * @param username    - Username to login
+	 * @param password    - password to login
+	 * @param newPassword - newPassword to replace the temp password - This param is
+	 *                    sent when a new password required challenge occurs
+	 * 
 	 */
 	@Override
-	public UserDTO signin(String username, String password) {
-		UserDTO userDTO = new UserDTO();
+	public UserDTO signin(UserDTO userDTO) throws Exception {
+
 		if (logger.isInfoEnabled())
-			logger.info("Validating Username {} :: for Login with Password {}", username, password);
-		try {
-			Map<String, String> authParams = new HashMap<String, String>();
-			authParams.put("USERNAME", username);
-			authParams.put("PASSWORD", password);
+			logger.info("Validating Username {} :: for Login with Password {}", userDTO.getEmail(),
+					userDTO.getPassword());
+		Map<String, String> authParams = new HashMap<>();
+		authParams.put(USERNAME, userDTO.getEmail());
+		authParams.put("PASSWORD", userDTO.getPassword());
 
-			/*
-			 * Build the AdminInitiateAuthRequest Object with AuthFlow as ADMIN_NO_SRP_AUTH
-			 * as we are signing user using username and password
-			 */
-			AdminInitiateAuthRequest authRequest = new AdminInitiateAuthRequest()
-					.withAuthFlow(AuthFlowType.ADMIN_NO_SRP_AUTH).withAuthParameters(authParams).withClientId(clientId)
-					.withUserPoolId(userPoolId);
+		/*
+		 * Build the AdminInitiateAuthRequest Object with AuthFlow as ADMIN_NO_SRP_AUTH
+		 * as we are signing user using username and password
+		 */
+		AdminInitiateAuthRequest authRequest = new AdminInitiateAuthRequest()
+				.withAuthFlow(AuthFlowType.ADMIN_NO_SRP_AUTH).withAuthParameters(authParams).withClientId(clientId)
+				.withUserPoolId(userPoolId);
 
-			/* Receive the response from Cognito */
-			AdminInitiateAuthResult authResponse = cognitoClient.adminInitiateAuth(authRequest);
+		/* Receive the response from Cognito */
+		AdminInitiateAuthResult authResponse = cognitoClient.adminInitiateAuth(authRequest);
 
-			userDTO = handleSigninResponse(userDTO, authResponse);
-			return userDTO;
-		} catch (UserNotFoundException ex) {
-			logger.error("User not found: {} :: Exception {}", username, ex.getMessage());
-		} catch (NotAuthorizedException ex) {
-			logger.error("invalid credentials: {} :: Exception {}", username, ex.getMessage());
-		} catch (TooManyRequestsException ex) {
-			logger.warn("caught TooManyRequestsException, delaying then retrying for {} :: Exception {} ", username,
-					ex.getMessage());
-		} catch (RuntimeException e) {
-			logger.error("Unexpected Challenge on signin", e.getMessage());
-		} catch (Exception e) {
-			logger.error("Something Bad happened while trying login for user {} :: Exception {}", username,
-					e.getMessage());
-		}
+		handleSigninResponse(userDTO, authResponse);
+		userDTO.setPassword("");
+		userDTO.setNewPassword("");
 		return userDTO;
 	}
 
@@ -138,8 +148,9 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	 * @param userDTO
 	 * @param authResponse
 	 * @return
+	 * @throws Exception
 	 */
-	private UserDTO handleSigninResponse(UserDTO userDTO, AdminInitiateAuthResult authResponse) {
+	private void handleSigninResponse(UserDTO userDTO, AdminInitiateAuthResult authResponse) throws Exception {
 		if (StringUtils.isEmpty(authResponse.getChallengeName())) {
 			logger.info("Login Success from Amazon Cognito");
 			/*
@@ -152,14 +163,15 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 			userDTO.setRefreshToken(authResponse.getAuthenticationResult().getRefreshToken());
 			userDTO.setCurrentTimeInMs(System.currentTimeMillis());
 		} else if (ChallengeNameType.NEW_PASSWORD_REQUIRED.name().equals(authResponse.getChallengeName())) {
+			if (userDTO.getNewPassword() != null && !userDTO.getNewPassword().equals("")) {
+				handleNewPasswordRequiredChallenge(userDTO, authResponse.getSession());
+			}
 			logger.info("{} attempted to sign in with temporary password :: Force Passowrd Change", userDTO.getEmail());
-			userDTO.setForcePasswordChange(true);
 			userDTO.getChallengesList().add(ChallengeNameType.NEW_PASSWORD_REQUIRED.name());
 		} else {
 			userDTO.getChallengesList().add(authResponse.getChallengeName());
 			throw new RuntimeException("unexpected challenge on signin: " + authResponse.getChallengeName());
 		}
-		return userDTO;
 	}
 
 	/**
@@ -169,7 +181,7 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	 * @param accessToken - Access Token to get user info
 	 */
 	@Override
-	public String getUserNameByToken(String accessToken) {
+	public String getUserNameByToken(String accessToken) throws Exception {
 		GetUserResult response = getUserResponse(accessToken);
 		if (response != null && !StringUtils.isEmpty(response.getUsername())) {
 			logger.info("Access Token is Validated.");
@@ -181,17 +193,17 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	}
 
 	@Override
-	public UserType signup(SignupRequestDTO signupRequestDTO) {
+	public UserType signup(SignupRequestDTO signupRequestDTO) throws Exception {
 		logger.info("Sign Up Request Received");
 		AdminCreateUserRequest createUserRequest = new AdminCreateUserRequest();
 		createUserRequest.setUsername(signupRequestDTO.getUsername());
 		createUserRequest.setTemporaryPassword(signupRequestDTO.getPassword());
 		createUserRequest.setUserPoolId(userPoolId);
-		
-		List<String> desirableDeliveryMedium = new ArrayList<String>();
+
+		List<String> desirableDeliveryMedium = new ArrayList<>();
 		desirableDeliveryMedium.add("EMAIL");
 		createUserRequest.setDesiredDeliveryMediums(desirableDeliveryMedium);
-		
+
 		List<AttributeType> attributeTypes = new ArrayList<>();
 		if (!StringUtils.isEmpty(signupRequestDTO.getUsername())) {
 			AttributeType emailAttribute = createAttributeType("email", signupRequestDTO.getEmail());
@@ -200,17 +212,18 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 		createUserRequest.setUserAttributes(attributeTypes);
 		logger.info("Creation User Build done. Ready to create user");
 		AdminCreateUserResult createUserResponse = cognitoClient.adminCreateUser(createUserRequest);
-		if(createUserResponse!=null && createUserResponse.getUser()!= null) {
+		if (createUserResponse != null && createUserResponse.getUser() != null) {
 			UserType createdUser = createUserResponse.getUser();
-			if(signupRequestDTO.isVerifyEmailAutomatically()) {
+			if (signupRequestDTO.isVerifyEmailAutomatically()) {
 				this.verifyEmail(createdUser.getUsername());
 			}
+			return createUserResponse.getUser();
 		}
 		return null;
 	}
-	
+
 	@Override
-	public boolean verifyEmail(String username) {
+	public boolean verifyEmail(String username) throws Exception {
 		AdminUpdateUserAttributesRequest attributeUpdateRequest = new AdminUpdateUserAttributesRequest();
 		attributeUpdateRequest.setUsername(username);
 		attributeUpdateRequest.setUserPoolId(userPoolId);
@@ -218,12 +231,12 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 		List<AttributeType> userAttributes = new ArrayList<>();
 		userAttributes.add(attributeType);
 		attributeUpdateRequest.setUserAttributes(userAttributes);
-		
+
 		try {
 			cognitoClient.adminUpdateUserAttributes(attributeUpdateRequest);
 			logger.info("Email Verified Successfully");
 			return true;
-		}catch (Exception e) {
+		} catch (Exception e) {
 			logger.error("Email Verification Failed.");
 			throw e;
 		}
@@ -238,57 +251,174 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	}
 
 	@Override
-	public List<String> getRoleList() {
-		// TODO Auto-generated method stub
-		return null;
+	public List<String> getUserGroupList() throws Exception {
+		ListGroupsRequest listGroupsRequest = new ListGroupsRequest();
+		listGroupsRequest.setUserPoolId(userPoolId);
+		ListGroupsResult listGroupsResult = cognitoClient.listGroups(listGroupsRequest);
+		List<GroupType> groups = listGroupsResult.getGroups();
+		List<String> groupList = new ArrayList<>();
+		for (GroupType group : groups) {
+			groupList.add(group.getGroupName());
+		}
+
+		return groupList;
 	}
 
 	@Override
-	public boolean createNewRole(RoleDTO roleDTO) {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean createNewUserGroup(String groupName, String groupDesc) throws Exception {
+		CreateGroupRequest createGroupRequest = new CreateGroupRequest();
+		createGroupRequest.setGroupName(groupName);
+		createGroupRequest.setDescription(groupDesc);
+		createGroupRequest.setUserPoolId(userPoolId);
+
+		CreateGroupResult createGroupResult = cognitoClient.createGroup(createGroupRequest);
+
+		return createGroupResult.getGroup() != null;
 	}
 
 	@Override
-	public boolean addUserToGroup(String userName, String groupName) {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean addUserToGroup(String userName, String groupName) throws Exception {
+		AdminAddUserToGroupRequest adminAddUserToGroupRequest = new AdminAddUserToGroupRequest();
+		adminAddUserToGroupRequest.setUsername(userName);
+		adminAddUserToGroupRequest.setGroupName(groupName);
+		adminAddUserToGroupRequest.setUserPoolId(userPoolId);
+
+		cognitoClient.adminAddUserToGroup(adminAddUserToGroupRequest);
+
+		return true;
 	}
 
 	@Override
-	public boolean removeUserFromGroup(String userName, String groupName) {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean removeUserFromGroup(String userName, String groupName) throws Exception {
+		AdminRemoveUserFromGroupRequest adminRemoveUserFromGroupRequest = new AdminRemoveUserFromGroupRequest();
+		adminRemoveUserFromGroupRequest.setUsername(userName);
+		adminRemoveUserFromGroupRequest.setUserPoolId(userPoolId);
+		adminRemoveUserFromGroupRequest.setGroupName(groupName);
+
+		cognitoClient.adminRemoveUserFromGroup(adminRemoveUserFromGroupRequest);
+
+		return true;
 	}
 
 	@Override
-	public List<String> getUserGroupsForUser(String userName) {
-		// TODO Auto-generated method stub
-		return null;
+	public List<String> getUserGroupsForUser(String userName) throws Exception {
+		List<String> userGroups = new ArrayList<>();
+
+		AdminListGroupsForUserRequest adminListGroupsForUserRequest = new AdminListGroupsForUserRequest();
+		adminListGroupsForUserRequest.setUsername(userName);
+		adminListGroupsForUserRequest.setUserPoolId(userPoolId);
+
+		AdminListGroupsForUserResult adminListGroupsForUserResult = cognitoClient
+				.adminListGroupsForUser(adminListGroupsForUserRequest);
+		if (!CollectionUtils.isEmpty(adminListGroupsForUserResult.getGroups())) {
+			List<GroupType> groupTypes = adminListGroupsForUserResult.getGroups();
+			for (GroupType groupType : groupTypes) {
+				userGroups.add(groupType.getGroupName());
+			}
+		}
+		return userGroups;
+	}
+
+	/**
+	 * Method to avail forgot password service Triggers a email to the user with an
+	 * OTP which the user has to enter subsequently to reset the password
+	 * 
+	 * @param userName
+	 * @return
+	 */
+	@Override
+	public boolean forgotPassword(String userName) throws Exception {
+		ForgotPasswordRequest forgotPasswordRequest = new ForgotPasswordRequest();
+		forgotPasswordRequest.setUsername(userName);
+		forgotPasswordRequest.setClientId(clientId);
+
+		ForgotPasswordResult forgotPasswordResult = cognitoClient.forgotPassword(forgotPasswordRequest);
+		return forgotPasswordResult.getCodeDeliveryDetails() != null;
+	}
+
+	/**
+	 * This method is used to reset the password (Forgot Password Service) The user
+	 * needs to enter an OTP to set his new password
+	 * 
+	 * @param newPasswordDTO
+	 */
+	@Override
+	public boolean resetPassword(NewPasswordDTO newPasswordDTO) throws Exception {
+		ConfirmForgotPasswordRequest confirmForgotPasswordRequest = new ConfirmForgotPasswordRequest();
+		confirmForgotPasswordRequest.setUsername(newPasswordDTO.getUsername());
+		confirmForgotPasswordRequest.setPassword(newPasswordDTO.getPassword());
+		confirmForgotPasswordRequest.setConfirmationCode(newPasswordDTO.getConfirmationCode());
+		confirmForgotPasswordRequest.setClientId(clientId);
+
+		cognitoClient.confirmForgotPassword(confirmForgotPasswordRequest);
+		return true;
 	}
 
 	@Override
-	public ExceptionsEnum forgotPassword(String userName) {
-		// TODO Auto-generated method stub
-		return null;
+	public JSONObject decodeToken(String authToken) throws Exception {
+		Map<String, Object> map = new HashMap<>();
+		if (authToken.toUpperCase().contains("BEARER")) {
+			GetUserRequest getUserRequest = new GetUserRequest();
+			String[] authTokenSplit = authToken.split(" ");
+			getUserRequest.setAccessToken(authTokenSplit[1]);
+
+			GetUserResult getUserResult = cognitoClient.getUser(getUserRequest);
+			if (!getUserResult.getUsername().isEmpty()) {
+				map.put(USERNAME, getUserResult.getUsername());
+
+				String[] splitString = authTokenSplit[1].split("\\.");
+				String base64EncodedBody = splitString[1];
+
+				Base64 base64Url = new Base64(true);
+				String body = new String(base64Url.decode(base64EncodedBody));
+
+				JSONObject json = new JSONObject(body);
+				JSONArray jsonArray = json.getJSONArray("cognito:groups");
+				List<String> userGroups = new ArrayList<>();
+				for (int i = 0; i < jsonArray.length(); i++) {
+					userGroups.add(jsonArray.getString(i));
+				}
+				map.put(ROLES, userGroups);
+
+			}
+		} else if (authToken.toUpperCase().contains("BASIC")) {
+			String[] authTokenSplit = authToken.split(" ");
+
+			Base64 base64Credentials = new Base64(true);
+			String credentials = new String(base64Credentials.decode(authTokenSplit[1]));
+			String[] credentialSplit = credentials.split(":");
+			UserDTO userDTO = new UserDTO();
+			userDTO.setEmail(credentialSplit[0]);
+			userDTO.setPassword(credentialSplit[1]);
+
+			map.put(USERNAME, userDTO.getEmail());
+
+			UserDTO loggedInUser = this.signin(userDTO);
+			if (loggedInUser.getToken() != null) {
+				// User is authenticated from Amazon Cognito
+				List<String> userGroups = this.getUserGroupsForUser(userDTO.getEmail());
+				if (!CollectionUtils.isEmpty(userGroups)) {
+					map.put(ROLES, userGroups);
+				} else {
+					map.put(ROLES, new ArrayList<>());
+				}
+			}
+		}
+		return new JSONObject(map);
 	}
 
 	@Override
-	public ExceptionsEnum setNewPassword(NewPasswordDTO newPasswordDTO) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public JSONObject decodeToken(String authToken) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public UserDTO refreshAccessToken(String refreshToken) {
-		// TODO Auto-generated method stub
-		return null;
+	public UserDTO refreshAccessToken(String refreshToken) throws Exception {
+		UserDTO userDTO = new UserDTO();
+		Map<String, String> authParams = new HashMap<>();
+		authParams.put("REFRESH_TOKEN", refreshToken);
+		AdminInitiateAuthRequest authRequest = new AdminInitiateAuthRequest()
+				.withAuthFlow(AuthFlowType.REFRESH_TOKEN_AUTH).withAuthParameters(authParams).withClientId(clientId)
+				.withUserPoolId(userPoolId);
+		// Receive the response from Cognito
+		AdminInitiateAuthResult authResponse = cognitoClient.adminInitiateAuth(authRequest);
+		handleSigninResponse(userDTO, authResponse);
+		return userDTO;
 	}
 
 	/**
@@ -297,12 +427,9 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	 * same functionality if we want user name also out of token.
 	 */
 	@Override
-	public boolean isValidToken(String accessToken) {
+	public boolean isValidToken(String accessToken) throws Exception {
 		GetUserResult response = getUserResponse(accessToken);
-		if (response != null && !StringUtils.isEmpty(response.getUsername())) {
-			return true;
-		}
-		return false;
+		return (response != null && !StringUtils.isEmpty(response.getUsername()));
 	}
 
 	private GetUserResult getUserResponse(String accessToken) {
@@ -310,8 +437,54 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 		request.setAccessToken(accessToken);
 
 		/* Get response using cognito client */
-		GetUserResult response = cognitoClient.getUser(request);
-		return response;
+		return cognitoClient.getUser(request);
 	}
 
+	/**
+	 * This function is used when the user wants to change his/her password.
+	 * 
+	 * @param accessToken
+	 * @param oldPassword
+	 * @param newPassword
+	 * @return
+	 */
+	@Override
+	public boolean updatePassword(String accessToken, String oldPassword, String newPassword) throws Exception {
+
+		ChangePasswordRequest changePasswordRequest = new ChangePasswordRequest();
+		changePasswordRequest.setAccessToken(accessToken);
+		changePasswordRequest.setPreviousPassword(oldPassword);
+		changePasswordRequest.setProposedPassword(newPassword);
+
+		cognitoClient.changePassword(changePasswordRequest);
+
+		return true;
+	}
+
+	// This function is also used to change the password on first login with
+	// temporary password(when a new password required challenge is thrown)
+	private UserDTO handleNewPasswordRequiredChallenge(UserDTO userDTO, String session) throws Exception {
+		Map<String, String> challengeResponses = new HashMap<>();
+
+		challengeResponses.put("NEW_PASSWORD", userDTO.getNewPassword());
+		challengeResponses.put("PASSWORD", userDTO.getPassword());
+		challengeResponses.put(USERNAME, userDTO.getEmail());
+		challengeResponses.put("userAttributes.email", userDTO.getEmail());
+
+		AdminRespondToAuthChallengeRequest adminRespondToAuthChallengeRequest = new AdminRespondToAuthChallengeRequest();
+		adminRespondToAuthChallengeRequest.setSession(session);
+		adminRespondToAuthChallengeRequest.setClientId(clientId);
+		adminRespondToAuthChallengeRequest.setUserPoolId(userPoolId);
+		adminRespondToAuthChallengeRequest.setChallengeName(ChallengeNameType.NEW_PASSWORD_REQUIRED.name());
+		adminRespondToAuthChallengeRequest.setChallengeResponses(challengeResponses);
+
+		AdminRespondToAuthChallengeResult adminRespondToAuthChallengeResult = cognitoClient
+				.adminRespondToAuthChallenge(adminRespondToAuthChallengeRequest);
+		if (StringUtils.isEmpty(adminRespondToAuthChallengeResult.getChallengeName())) {
+			userDTO.setPassword(userDTO.getNewPassword());
+			return this.signin(userDTO);
+		}
+		return null;
+
+	}
 }

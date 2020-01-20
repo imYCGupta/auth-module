@@ -6,39 +6,39 @@ import org.json.JSONObject;
 
 import com.amazonaws.services.cognitoidp.model.UserType;
 import com.geekwise.auth.module.dto.NewPasswordDTO;
-import com.geekwise.auth.module.dto.RoleDTO;
 import com.geekwise.auth.module.dto.SignupRequestDTO;
 import com.geekwise.auth.module.dto.UserDTO;
-import com.geekwise.auth.module.enums.ExceptionsEnum;
 
 public interface AuthService {
 
-	public UserDTO signin(String username, String password);
+	public UserDTO signin(UserDTO userDTO) throws Exception;
 	
-	public boolean isValidToken(String accessToken);
+	public boolean isValidToken(String accessToken) throws Exception;
 
-	public String getUserNameByToken(String accessToken);
+	public String getUserNameByToken(String accessToken) throws Exception;
 
-	public UserType signup(SignupRequestDTO signupRequestDTO);
+	public UserType signup(SignupRequestDTO signupRequestDTO) throws Exception;
 
-	public List<String> getRoleList();
+	public List<String> getUserGroupList() throws Exception;
 
-	public boolean createNewRole(RoleDTO roleDTO);
+	public boolean createNewUserGroup(String groupName, String groupDesc) throws Exception;
 
-	public boolean addUserToGroup(String userName, String groupName);
+	public boolean addUserToGroup(String userName, String groupName) throws Exception;
 
-	public boolean removeUserFromGroup(String userName, String groupName);
+	public boolean removeUserFromGroup(String userName, String groupName) throws Exception;
 
-	public List<String> getUserGroupsForUser(String userName);
+	public List<String> getUserGroupsForUser(String userName) throws Exception;
 
-	public ExceptionsEnum forgotPassword(String userName);
+	public boolean forgotPassword(String userName) throws Exception;
 
-	public ExceptionsEnum setNewPassword(NewPasswordDTO newPasswordDTO);
+	public boolean resetPassword(NewPasswordDTO newPasswordDTO) throws Exception;
 
-	public JSONObject decodeToken(String authToken);
+	public JSONObject decodeToken(String authToken) throws Exception;
 
-	public UserDTO refreshAccessToken(String refreshToken);
+	public UserDTO refreshAccessToken(String refreshToken) throws Exception;
 
-	public boolean verifyEmail(String username);
+	public boolean verifyEmail(String username) throws Exception;
+	
+	public boolean updatePassword(String username, String oldPassword, String newPassword) throws Exception;
 
 }

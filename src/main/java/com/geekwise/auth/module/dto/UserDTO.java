@@ -22,12 +22,16 @@ public class UserDTO {
 	private String tokenType;
 	private Date tokenLastUpdate;	
 	private Date tokenExpiryDate;
-	private boolean forcePasswordChange = false;
+	
 	private List<String> exceptionsList = new ArrayList<>();
 	private List<String> challengesList = new ArrayList<>();
 	private Integer expiresInSec;
 	private long currentTimeInMs;
 	private String refreshToken;
+	
+	private String password;
+	private String newPassword;
+	
 	public String getTitle() {
 		return title;
 	}
@@ -76,12 +80,7 @@ public class UserDTO {
 	public void setTokenExpiryDate(Date tokenExpiryDate) {
 		this.tokenExpiryDate = tokenExpiryDate;
 	}
-	public boolean isForcePasswordChange() {
-		return forcePasswordChange;
-	}
-	public void setForcePasswordChange(boolean forcePasswordChange) {
-		this.forcePasswordChange = forcePasswordChange;
-	}
+	
 	public List<String> getExceptionsList() {
 		return exceptionsList;
 	}
@@ -111,5 +110,17 @@ public class UserDTO {
 	}
 	public void setRefreshToken(String refreshToken) {
 		this.refreshToken = refreshToken;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public String getNewPassword() {
+		return newPassword;
+	}
+	public void setNewPassword(String newPassword) {
+		this.newPassword = newPassword;
 	}
 }
