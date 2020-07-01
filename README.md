@@ -11,7 +11,7 @@ This module gives you support for Authenticating a user in Token Based Authentic
 			</ul>
 		</div>
 	</div>
-</prep>
+</pre>
 
 It can be used as dependency as well in your maven project as below:
 
