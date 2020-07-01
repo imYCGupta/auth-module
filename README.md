@@ -25,7 +25,7 @@ It can be used as dependency as well in your maven project as below:
 and define the repository as 
 &lt;/repositories&gt;
 	&lt;repository&gt;
-		&lt;id&gt;auth-module&lt;/id&gt;
+		&lt;id&gt;geekwise-auth-module&lt;/id&gt;
 	   	&lt;url&gt;https://github.com/imYCGupta/auth-module/raw/mvn-repo/&lt;/url&gt;
 	&lt;/repository&gt;
 &lt;/repositories&gt;
