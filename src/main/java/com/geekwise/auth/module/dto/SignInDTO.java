@@ -12,7 +12,7 @@ import java.util.List;
  * @since Oct 14, 2019
  * @version 0.1
  */
-public class UserDTO {
+public class SignInDTO {
 	
 	private String title;
 	private String firstName;

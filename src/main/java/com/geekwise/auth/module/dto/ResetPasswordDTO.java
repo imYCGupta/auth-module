@@ -8,7 +8,7 @@ package com.geekwise.auth.module.dto;
  * @since Oct 14, 2019
  * @version 0.1
  */
-public class NewPasswordDTO {
+public class ResetPasswordDTO {
 	
 	private String confirmationCode;
 	
