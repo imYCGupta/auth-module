@@ -15,6 +15,7 @@ This module gives you support for Authenticating a user in Token Based Authentic
 
 It can be used as dependency as well in your maven project as below:
 
+<pre>
 <dependency>
 	<groupId>com.geekwise</groupId>
 	<artifactId>auth-module</artifactId>
@@ -28,3 +29,4 @@ and define the repository as
 	   	<url>https://github.com/imYCGupta/auth-module/raw/mvn-repo/</url>
 	</repository>
 </repositories>
+<pre>
