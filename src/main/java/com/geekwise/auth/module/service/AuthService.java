@@ -39,7 +39,7 @@ public interface AuthService {
 
 	public boolean verifyEmail(String username) throws Exception;
 	
-	public boolean updatePassword(String username, String oldPassword, String newPassword) throws Exception;
+	public boolean changePassword(String username, String oldPassword, String newPassword) throws Exception;
 	
 	public LoginResponseDTO updateTempPassword(String username, String oldPassword, String newPassword) throws Exception;
 

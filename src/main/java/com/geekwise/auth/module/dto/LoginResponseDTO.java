@@ -3,10 +3,6 @@
  */
 package com.geekwise.auth.module.dto;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
 /**
  * @author Yogesh
  * @since Oct 14, 2019
@@ -21,9 +17,17 @@ public class LoginResponseDTO {
 	private String token;
 	private String tokenType;
 	private Integer expiresInSec;
-	private long currentTimeInMs;
+	private long issuedAt;
+	private long expiresAt;
 	private String refreshToken;
 	
+	
+	public long getExpiresAt() {
+		return expiresAt;
+	}
+	public void setExpiresAt(long expiresAt) {
+		this.expiresAt = expiresAt;
+	}
 	public String getTitle() {
 		return title;
 	}
@@ -66,11 +70,11 @@ public class LoginResponseDTO {
 	public void setExpiresInSec(Integer expiresInSec) {
 		this.expiresInSec = expiresInSec;
 	}
-	public long getCurrentTimeInMs() {
-		return currentTimeInMs;
+	public long getIssuedAt() {
+		return issuedAt;
 	}
-	public void setCurrentTimeInMs(long currentTimeInMs) {
-		this.currentTimeInMs = currentTimeInMs;
+	public void setIssuedAt(long issuedAt) {
+		this.issuedAt = issuedAt;
 	}
 	public String getRefreshToken() {
 		return refreshToken;
