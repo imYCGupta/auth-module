@@ -30,3 +30,10 @@ and define the repository as
 	&lt;/repository&gt;
 &lt;/repositories&gt;
 </pre>
+
+After adding dependency, you can use following syntax to do
+
+AuthService authService = new AmazonCognitoAuthServiceImpl(<Cognito-User-Pool-Id>, <Cognito-Client-Id>, <Cognito-Region>, <Credential-File-Path>);
+
+Once you have authService object, you can call function like below:
+
