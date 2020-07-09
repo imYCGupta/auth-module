@@ -12,7 +12,7 @@ import java.util.List;
  * @since Oct 14, 2019
  * @version 0.1
  */
-public class SignInDTO {
+public class LoginResponseDTO {
 	
 	private String title;
 	private String firstName;
@@ -20,17 +20,9 @@ public class SignInDTO {
 	private String email;
 	private String token;
 	private String tokenType;
-	private Date tokenLastUpdate;	
-	private Date tokenExpiryDate;
-	
-	private List<String> exceptionsList = new ArrayList<>();
-	private List<String> challengesList = new ArrayList<>();
 	private Integer expiresInSec;
 	private long currentTimeInMs;
 	private String refreshToken;
-	
-	private String password;
-	private String newPassword;
 	
 	public String getTitle() {
 		return title;
@@ -68,31 +60,6 @@ public class SignInDTO {
 	public void setTokenType(String tokenType) {
 		this.tokenType = tokenType;
 	}
-	public Date getTokenLastUpdate() {
-		return tokenLastUpdate;
-	}
-	public void setTokenLastUpdate(Date tokenLastUpdate) {
-		this.tokenLastUpdate = tokenLastUpdate;
-	}
-	public Date getTokenExpiryDate() {
-		return tokenExpiryDate;
-	}
-	public void setTokenExpiryDate(Date tokenExpiryDate) {
-		this.tokenExpiryDate = tokenExpiryDate;
-	}
-	
-	public List<String> getExceptionsList() {
-		return exceptionsList;
-	}
-	public void setExceptionsList(List<String> exceptionsList) {
-		this.exceptionsList = exceptionsList;
-	}
-	public List<String> getChallengesList() {
-		return challengesList;
-	}
-	public void setChallengesList(List<String> challengesList) {
-		this.challengesList = challengesList;
-	}
 	public Integer getExpiresInSec() {
 		return expiresInSec;
 	}
@@ -110,17 +77,5 @@ public class SignInDTO {
 	}
 	public void setRefreshToken(String refreshToken) {
 		this.refreshToken = refreshToken;
-	}
-	public String getPassword() {
-		return password;
-	}
-	public void setPassword(String password) {
-		this.password = password;
-	}
-	public String getNewPassword() {
-		return newPassword;
-	}
-	public void setNewPassword(String newPassword) {
-		this.newPassword = newPassword;
 	}
 }

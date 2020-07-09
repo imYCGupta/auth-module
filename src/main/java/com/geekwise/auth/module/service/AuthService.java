@@ -7,11 +7,11 @@ import org.json.JSONObject;
 import com.amazonaws.services.cognitoidp.model.UserType;
 import com.geekwise.auth.module.dto.ResetPasswordDTO;
 import com.geekwise.auth.module.dto.RegistrationDTO;
-import com.geekwise.auth.module.dto.SignInDTO;
+import com.geekwise.auth.module.dto.LoginResponseDTO;
 
 public interface AuthService {
 
-	public SignInDTO signin(SignInDTO userDTO) throws Exception;
+	public LoginResponseDTO signin(String email, String password) throws Exception;
 	
 	public boolean isValidToken(String accessToken) throws Exception;
 
@@ -19,7 +19,7 @@ public interface AuthService {
 
 	public UserType signup(RegistrationDTO signupRequestDTO) throws Exception;
 
-	public List<String> getUserGroupList() throws Exception;
+	public List<String> getListOfUserGroups() throws Exception;
 
 	public boolean createNewUserGroup(String groupName, String groupDesc) throws Exception;
 
@@ -35,10 +35,12 @@ public interface AuthService {
 
 	public JSONObject decodeToken(String authToken) throws Exception;
 
-	public SignInDTO refreshAccessToken(String refreshToken) throws Exception;
+	public LoginResponseDTO refreshAccessToken(String refreshToken) throws Exception;
 
 	public boolean verifyEmail(String username) throws Exception;
 	
 	public boolean updatePassword(String username, String oldPassword, String newPassword) throws Exception;
+	
+	public LoginResponseDTO updateTempPassword(String username, String oldPassword, String newPassword) throws Exception;
 
 }

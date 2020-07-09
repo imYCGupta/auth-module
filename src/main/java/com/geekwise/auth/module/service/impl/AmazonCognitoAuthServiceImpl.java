@@ -44,7 +44,7 @@ import com.amazonaws.services.cognitoidp.model.ListGroupsResult;
 import com.amazonaws.services.cognitoidp.model.UserType;
 import com.geekwise.auth.module.dto.ResetPasswordDTO;
 import com.geekwise.auth.module.dto.RegistrationDTO;
-import com.geekwise.auth.module.dto.SignInDTO;
+import com.geekwise.auth.module.dto.LoginResponseDTO;
 import com.geekwise.auth.module.service.AuthService;
 
 /**
@@ -101,8 +101,8 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 
 	/**
 	 * This function is used to signin a user on Cognito. It takes username and
-	 * password in input and return {@link SignInDTO} in return. <br/>
-	 * If signin is success then it return {@link SignInDTO} with JWT Access Token,
+	 * password in input and return {@link LoginResponseDTO} in return. <br/>
+	 * If signin is success then it return {@link LoginResponseDTO} with JWT Access Token,
 	 * Token Expiry time, JWT Refresh Token, Token Type with it. This function is
 	 * used even when a NewPasswordRequiredChallenge is raised. In this case,
 	 * newPassword is also set in the userDTO and the function is invoked
@@ -114,14 +114,19 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	 * 
 	 */
 	@Override
-	public SignInDTO signin(SignInDTO userDTO) throws Exception {
+	public LoginResponseDTO signin(String email, String password) throws Exception {
+
+		return this.signin(email, password, null);		
+	}
+	
+	private LoginResponseDTO signin(String email, String password, String newPassword) throws Exception {
 
 		if (logger.isInfoEnabled())
-			logger.info("Validating Username {} :: for Login with Password {}", userDTO.getEmail(),
-					userDTO.getPassword());
+			logger.info("Validating Username {} :: for Login with Password {}", email,
+					password);
 		Map<String, String> authParams = new HashMap<>();
-		authParams.put(USERNAME, userDTO.getEmail());
-		authParams.put("PASSWORD", userDTO.getPassword());
+		authParams.put(USERNAME, email);
+		authParams.put("PASSWORD", password);
 
 		/*
 		 * Build the AdminInitiateAuthRequest Object with AuthFlow as ADMIN_NO_SRP_AUTH
@@ -133,45 +138,41 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 
 		/* Receive the response from Cognito */
 		AdminInitiateAuthResult authResponse = cognitoClient.adminInitiateAuth(authRequest);
-
-		handleSigninResponse(userDTO, authResponse);
-		userDTO.setPassword("");
-		userDTO.setNewPassword("");
-		return userDTO;
+		LoginResponseDTO responseDTO = new LoginResponseDTO();
+		responseDTO.setEmail(email);
+		return handleSigninResponse(responseDTO, authResponse, newPassword, password);		
 	}
 
 	/**
 	 * It will handle signin response to see if user is signed in properly or we got
 	 * some challenge while doing same. If there is a challenge then that can be
-	 * found in Challenge List of {@link SignInDTO}
+	 * found in Challenge List of {@link LoginResponseDTO}
 	 * 
 	 * @param userDTO
 	 * @param authResponse
+	 * @param newPassword 
 	 * @return
 	 * @throws Exception
 	 */
-	private void handleSigninResponse(SignInDTO userDTO, AdminInitiateAuthResult authResponse) throws Exception {
+	private LoginResponseDTO handleSigninResponse(LoginResponseDTO responseDTO, AdminInitiateAuthResult authResponse, String newPassword, String oldPassword) throws Exception {
 		if (StringUtils.isEmpty(authResponse.getChallengeName())) {
 			logger.info("Login Success from Amazon Cognito");
 			/*
 			 * If challenge name is null then User is authenticated Based on the response
 			 * returned Load the userDTO and send it back
 			 */
-			userDTO.setToken(authResponse.getAuthenticationResult().getAccessToken());
-			userDTO.setTokenType(authResponse.getAuthenticationResult().getTokenType());
-			userDTO.setExpiresInSec(authResponse.getAuthenticationResult().getExpiresIn());
-			userDTO.setRefreshToken(authResponse.getAuthenticationResult().getRefreshToken());
-			userDTO.setCurrentTimeInMs(System.currentTimeMillis());
-		} else if (ChallengeNameType.NEW_PASSWORD_REQUIRED.name().equals(authResponse.getChallengeName())) {
-			if (userDTO.getNewPassword() != null && !userDTO.getNewPassword().equals("")) {
-				handleNewPasswordRequiredChallenge(userDTO, authResponse.getSession());
-			}
-			logger.info("{} attempted to sign in with temporary password :: Force Passowrd Change", userDTO.getEmail());
-			userDTO.getChallengesList().add(ChallengeNameType.NEW_PASSWORD_REQUIRED.name());
-		} else {
-			userDTO.getChallengesList().add(authResponse.getChallengeName());
-			throw new RuntimeException("unexpected challenge on signin: " + authResponse.getChallengeName());
+			responseDTO.setToken(authResponse.getAuthenticationResult().getAccessToken());
+			responseDTO.setTokenType(authResponse.getAuthenticationResult().getTokenType());
+			responseDTO.setExpiresInSec(authResponse.getAuthenticationResult().getExpiresIn());
+			responseDTO.setRefreshToken(authResponse.getAuthenticationResult().getRefreshToken());
+			responseDTO.setCurrentTimeInMs(System.currentTimeMillis());
+		} else if (!StringUtils.isEmpty(newPassword) && !StringUtils.isEmpty(oldPassword) && 
+				ChallengeNameType.NEW_PASSWORD_REQUIRED.name().equals(authResponse.getChallengeName())) {
+			handleNewPasswordRequiredChallenge(responseDTO.getEmail(),oldPassword,newPassword, authResponse.getSession());
+		}else {
+			throw new RuntimeException(authResponse.getChallengeName());
 		}
+		return responseDTO;
 	}
 
 	/**
@@ -205,7 +206,7 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 		createUserRequest.setDesiredDeliveryMediums(desirableDeliveryMedium);
 
 		List<AttributeType> attributeTypes = new ArrayList<>();
-		if (!StringUtils.isEmpty(signupRequestDTO.getUsername())) {
+		if (!StringUtils.isEmpty(signupRequestDTO.getEmail())) {
 			AttributeType emailAttribute = createAttributeType("email", signupRequestDTO.getEmail());
 			attributeTypes.add(emailAttribute);
 		}
@@ -251,7 +252,7 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	}
 
 	@Override
-	public List<String> getUserGroupList() throws Exception {
+	public List<String> getListOfUserGroups() throws Exception {
 		ListGroupsRequest listGroupsRequest = new ListGroupsRequest();
 		listGroupsRequest.setUserPoolId(userPoolId);
 		ListGroupsResult listGroupsResult = cognitoClient.listGroups(listGroupsRequest);
@@ -379,37 +380,14 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 					userGroups.add(jsonArray.getString(i));
 				}
 				map.put(ROLES, userGroups);
-
-			}
-		} else if (authToken.toUpperCase().contains("BASIC")) {
-			String[] authTokenSplit = authToken.split(" ");
-
-			Base64 base64Credentials = new Base64(true);
-			String credentials = new String(base64Credentials.decode(authTokenSplit[1]));
-			String[] credentialSplit = credentials.split(":");
-			SignInDTO userDTO = new SignInDTO();
-			userDTO.setEmail(credentialSplit[0]);
-			userDTO.setPassword(credentialSplit[1]);
-
-			map.put(USERNAME, userDTO.getEmail());
-
-			SignInDTO loggedInUser = this.signin(userDTO);
-			if (loggedInUser.getToken() != null) {
-				// User is authenticated from Amazon Cognito
-				List<String> userGroups = this.getUserGroupsForUser(userDTO.getEmail());
-				if (!CollectionUtils.isEmpty(userGroups)) {
-					map.put(ROLES, userGroups);
-				} else {
-					map.put(ROLES, new ArrayList<>());
-				}
 			}
 		}
 		return new JSONObject(map);
 	}
 
 	@Override
-	public SignInDTO refreshAccessToken(String refreshToken) throws Exception {
-		SignInDTO userDTO = new SignInDTO();
+	public LoginResponseDTO refreshAccessToken(String refreshToken) throws Exception {
+		LoginResponseDTO userDTO = new LoginResponseDTO();
 		Map<String, String> authParams = new HashMap<>();
 		authParams.put("REFRESH_TOKEN", refreshToken);
 		AdminInitiateAuthRequest authRequest = new AdminInitiateAuthRequest()
@@ -417,7 +395,7 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 				.withUserPoolId(userPoolId);
 		// Receive the response from Cognito
 		AdminInitiateAuthResult authResponse = cognitoClient.adminInitiateAuth(authRequest);
-		handleSigninResponse(userDTO, authResponse);
+		handleSigninResponse(userDTO, authResponse, null, null);
 		return userDTO;
 	}
 
@@ -460,16 +438,13 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 
 		return true;
 	}
-
-	// This function is also used to change the password on first login with
-	// temporary password(when a new password required challenge is thrown)
-	private SignInDTO handleNewPasswordRequiredChallenge(SignInDTO userDTO, String session) throws Exception {
+	
+	private LoginResponseDTO handleNewPasswordRequiredChallenge(String username, String oldPassword, String newPassword, String session) throws Exception {
 		Map<String, String> challengeResponses = new HashMap<>();
 
-		challengeResponses.put("NEW_PASSWORD", userDTO.getNewPassword());
-		challengeResponses.put("PASSWORD", userDTO.getPassword());
-		challengeResponses.put(USERNAME, userDTO.getEmail());
-		challengeResponses.put("userAttributes.email", userDTO.getEmail());
+		challengeResponses.put("NEW_PASSWORD", newPassword);
+		challengeResponses.put("PASSWORD", oldPassword);
+		challengeResponses.put(USERNAME, username);
 
 		AdminRespondToAuthChallengeRequest adminRespondToAuthChallengeRequest = new AdminRespondToAuthChallengeRequest();
 		adminRespondToAuthChallengeRequest.setSession(session);
@@ -480,11 +455,15 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 
 		AdminRespondToAuthChallengeResult adminRespondToAuthChallengeResult = cognitoClient
 				.adminRespondToAuthChallenge(adminRespondToAuthChallengeRequest);
-		if (StringUtils.isEmpty(adminRespondToAuthChallengeResult.getChallengeName())) {
-			userDTO.setPassword(userDTO.getNewPassword());
-			return this.signin(userDTO);
+		if (StringUtils.isEmpty(adminRespondToAuthChallengeResult.getChallengeName())) {			
+			return this.signin(username, newPassword);
 		}
 		return null;
 
+	}
+	
+	@Override
+	public LoginResponseDTO updateTempPassword(String username, String oldPassword, String newPassword) throws Exception{
+		return this.signin(username, oldPassword, newPassword);
 	}
 }
