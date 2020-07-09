@@ -35,5 +35,5 @@ After adding dependency, you can use following syntax to do
 
 AuthService authService = new AmazonCognitoAuthServiceImpl(&lt;Cognito-User-Pool-Id&gt;, &lt;Cognito-Client-Id&gt;, &lt;Cognito-Region&gt;, &lt;Credential-File-Path&gt;);
 
-Once you have authService object, you can call function like below:
+Once you have authService object, you can call functions.
 
