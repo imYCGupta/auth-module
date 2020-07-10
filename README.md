@@ -63,3 +63,5 @@ __Mark Email Verified__ - verifyEmail(String email) returns boolean (true - if s
 __Change Password__ - changePassword(String username, String oldPassword, String newPassword) returns boolean (true - if success / false - if fails)  
 
 __Update Temp Password__ - updateTempPassword(String username, String oldPassword, String newPassword) returns LoginResponseDTO which has AccessToken, Access Token Issued At, Access Token Expires At, Refresh Token  
+
+__Sign Out__ - signout(String userName) returns boolean (true - if success / false - if fails)
