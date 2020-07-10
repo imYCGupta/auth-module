@@ -27,6 +27,8 @@ import com.amazonaws.services.cognitoidp.model.AdminRemoveUserFromGroupRequest;
 import com.amazonaws.services.cognitoidp.model.AdminRespondToAuthChallengeRequest;
 import com.amazonaws.services.cognitoidp.model.AdminRespondToAuthChallengeResult;
 import com.amazonaws.services.cognitoidp.model.AdminUpdateUserAttributesRequest;
+import com.amazonaws.services.cognitoidp.model.AdminUserGlobalSignOutRequest;
+import com.amazonaws.services.cognitoidp.model.AdminUserGlobalSignOutResult;
 import com.amazonaws.services.cognitoidp.model.AttributeType;
 import com.amazonaws.services.cognitoidp.model.AuthFlowType;
 import com.amazonaws.services.cognitoidp.model.ChallengeNameType;
@@ -38,6 +40,8 @@ import com.amazonaws.services.cognitoidp.model.ForgotPasswordRequest;
 import com.amazonaws.services.cognitoidp.model.ForgotPasswordResult;
 import com.amazonaws.services.cognitoidp.model.GetUserRequest;
 import com.amazonaws.services.cognitoidp.model.GetUserResult;
+import com.amazonaws.services.cognitoidp.model.GlobalSignOutRequest;
+import com.amazonaws.services.cognitoidp.model.GlobalSignOutResult;
 import com.amazonaws.services.cognitoidp.model.GroupType;
 import com.amazonaws.services.cognitoidp.model.ListGroupsRequest;
 import com.amazonaws.services.cognitoidp.model.ListGroupsResult;
@@ -166,7 +170,7 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 			responseDTO.setExpiresInSec(authResponse.getAuthenticationResult().getExpiresIn());
 			responseDTO.setRefreshToken(authResponse.getAuthenticationResult().getRefreshToken());
 			responseDTO.setIssuedAt(System.currentTimeMillis());
-			responseDTO.setExpiresAt(responseDTO.getIssuedAt()+responseDTO.getExpiresInSec());
+			responseDTO.setExpiresAt(responseDTO.getIssuedAt() + responseDTO.getExpiresInSec());
 		} else if (!StringUtils.isEmpty(newPassword) && !StringUtils.isEmpty(oldPassword)
 				&& ChallengeNameType.NEW_PASSWORD_REQUIRED.name().equals(authResponse.getChallengeName())) {
 			handleNewPasswordRequiredChallenge(responseDTO.getEmail(), oldPassword, newPassword,
@@ -466,5 +470,17 @@ public class AmazonCognitoAuthServiceImpl implements AuthService {
 	public LoginResponseDTO updateTempPassword(String username, String oldPassword, String newPassword)
 			throws Exception {
 		return this.signin(username, oldPassword, newPassword);
+	}
+
+	@Override
+	public boolean signout(String userName) throws Exception {
+		AdminUserGlobalSignOutRequest globalSignOutRequest = new AdminUserGlobalSignOutRequest();
+		globalSignOutRequest.setUsername(userName);
+		globalSignOutRequest.setUserPoolId(userPoolId);
+		AdminUserGlobalSignOutResult result = cognitoClient.adminUserGlobalSignOut(globalSignOutRequest);
+		if (result.getSdkHttpMetadata().getHttpStatusCode() == 200) {
+			return true;
+		}
+		return false;
 	}
 }

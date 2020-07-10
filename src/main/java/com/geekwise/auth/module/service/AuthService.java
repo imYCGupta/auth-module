@@ -42,5 +42,7 @@ public interface AuthService {
 	public boolean changePassword(String username, String oldPassword, String newPassword) throws Exception;
 	
 	public LoginResponseDTO updateTempPassword(String username, String oldPassword, String newPassword) throws Exception;
+	
+	public boolean signout(String userName) throws Exception;
 
 }
